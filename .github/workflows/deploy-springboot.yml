@@ -23,15 +23,14 @@ jobs:
 
       - name: Build and push
         run: |
-          docker login ${{ secrets.DOCKER_REGISTRY }} -u ${{ secrets.DOCKER_REGISTRY_USERNAME }} -p ${{ secrets.DOCKER_REGISTRY_PASSWORD }} &&
           mvn -Pnative spring-boot:build-image \
+          -B --no-transfer-progress \
           -Dspring-boot.build-image.imageName="${{ secrets.DOCKER_REGISTRY }}/test/springboot:${GITHUB_SHA::7}" \
           -Ddocker.publishRegistry.username="${{ secrets.DOCKER_REGISTRY_USERNAME }}" \
           -Ddocker.publishRegistry.password="${{ secrets.DOCKER_REGISTRY_PASSWORD }}" \
           -Dspring-boot.build-image.publish=true \
-          -e -X \
+          -Dspring-boot.publishRegistry.url="${{ secrets.DOCKER_REGISTRY }}"
           --file pom.xml
-      
 
       - name: Capture SHA tag
         run: echo "SHA_TAG=\"${{ env.GITHUB_SHA }}\"" >> $GITHUB_ENV
