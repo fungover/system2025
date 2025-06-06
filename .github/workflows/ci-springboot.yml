@@ -1,0 +1,43 @@
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "springboot/**"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "springboot/**"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: springboot
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '24'
+          cache: maven
+
+      - name: Check for changes in Java source or test files
+        id: check_java_changes
+        run: |
+          if git diff --quiet HEAD~1 HEAD -- springboot/src/** springboot/pom.xml; then
+            echo "changed=false" >> $GITHUB_ENV
+          else
+            echo "changed=true" >> $GITHUB_ENV
+          fi
+          echo "Java source files changed: ${{ env.changed }}"
+
+      - name: Compile with Maven (Conditional)
+        if: env.changed == 'true'
+        run: mvn -B --no-transfer-progress compile --file pom.xml
+
+      - name: Run test with Maven (Conditional)
+        if: env.changed == 'true'
+        run: mvn -B --no-transfer-progress test --file pom.xml
