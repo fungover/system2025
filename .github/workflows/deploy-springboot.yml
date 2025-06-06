@@ -29,10 +29,11 @@ jobs:
           mvn -Pnative spring-boot:build-image \
           -B --no-transfer-progress \
           -Dspring-boot.build-image.imageName="${{ secrets.DOCKER_REGISTRY }}/test/springboot:${GITHUB_SHA::7}" \
+          -Dnative-image.args="--enable-sbom -Ob" \
           --file pom.xml
 
       - name: Push image
         run: docker push "${{ secrets.DOCKER_REGISTRY }}/test/springboot:${GITHUB_SHA::7}"
 
       - name: Capture SHA tag
-        run: echo "SHA_TAG=\"${{ env.GITHUB_SHA }}\"" >> $GITHUB_ENV
+        run: echo "SHA_TAG=\"${{ env.GITHUB_SHA }}\""
