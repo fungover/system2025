@@ -1,0 +1,24 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - prod
+    paths:
+      - "springboot/**"
+jobs:
+  build:
+    runs-on:  ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and push
+        run: mvn spring-boot:build-image \
+          -Dspring-boot.build-image.imageName=${{ secrets.DOCKER_REGISTRY }}/test/my-app:${GITHUB_SHA::7} \
+          -Ddocker.publishRegistry.username=${{ secrets.DOCKER_REGISTRY_USERNAME }} \
+          -Ddocker.publishRegistry.password=${{ secrets.DOCKER_REGISTRY_PASSWORD }} \
+          -Dspring-boot.build-image.publish=true
+
+      - name: Capture SHA tag
+        run: echo "SHA_TAG=\"${{ env.GITHUB_SHA }}\"" >> $GITHUB_ENV
