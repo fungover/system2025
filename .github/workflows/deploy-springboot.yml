@@ -16,7 +16,8 @@ jobs:
 
       - name: Build and push
         run: |
-          mvn spring-boot:build-image \
+          mvn -Pnative
+            spring-boot:build-image \
             "-Dspring-boot.build-image.imageName=${{ secrets.DOCKER_REGISTRY }}/test/springboot:${GITHUB_SHA::7}" \
             "-Ddocker.publishRegistry.username=${{ secrets.DOCKER_REGISTRY_USERNAME }}" \
             "-Ddocker.publishRegistry.password=${{ secrets.DOCKER_REGISTRY_PASSWORD }}" \
