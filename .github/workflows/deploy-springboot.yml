@@ -29,8 +29,8 @@ jobs:
           -Ddocker.publishRegistry.username="${{ secrets.DOCKER_REGISTRY_USERNAME }}" \
           -Ddocker.publishRegistry.password="${{ secrets.DOCKER_REGISTRY_PASSWORD }}" \
           -Dspring-boot.build-image.publish=true \
+          -e -X \
           --file pom.xml
-          -X
       
 
       - name: Capture SHA tag
