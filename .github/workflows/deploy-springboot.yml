@@ -21,8 +21,14 @@ jobs:
           java-version: '24'
           cache: maven
 
-      - name: Docker login
-        run:  echo "${{ secrets.DOCKER_REGISTRY_PASSWORD }}" | docker login --username "${{ secrets.DOCKER_REGISTRY_USERNAME }}" --password-stdin "${{ secrets.DOCKER_REGISTRY }}"
+#      - name: Docker login
+#        run:  echo "${{ secrets.DOCKER_REGISTRY_PASSWORD }}" | docker login --username "${{ secrets.DOCKER_REGISTRY_USERNAME }}" --password-stdin "${{ secrets.DOCKER_REGISTRY }}"
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+          password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
 
       - name: Build
         run: |
