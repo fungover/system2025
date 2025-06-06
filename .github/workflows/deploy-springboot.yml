@@ -15,12 +15,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build and push
-        run: mvn spring-boot:build-image \
-          -Dspring-boot.build-image.imageName=${{ secrets.DOCKER_REGISTRY }}/test/springboot:${GITHUB_SHA::7} \
-          -Ddocker.publishRegistry.username=${{ secrets.DOCKER_REGISTRY_USERNAME }} \
-          -Ddocker.publishRegistry.password=${{ secrets.DOCKER_REGISTRY_PASSWORD }} \
-          -Dspring-boot.build-image.publish=true \
-          --file pom.xml
+        run: |
+          mvn spring-boot:build-image \
+            "-Dspring-boot.build-image.imageName=${{ secrets.DOCKER_REGISTRY }}/test/springboot:${GITHUB_SHA::7}" \
+            "-Ddocker.publishRegistry.username=${{ secrets.DOCKER_REGISTRY_USERNAME }}" \
+            "-Ddocker.publishRegistry.password=${{ secrets.DOCKER_REGISTRY_PASSWORD }}" \
+            "-Dspring-boot.build-image.publish=true" \
+            --file pom.xml
+      
 
       - name: Capture SHA tag
         run: echo "SHA_TAG=\"${{ env.GITHUB_SHA }}\"" >> $GITHUB_ENV
