@@ -40,5 +40,12 @@ jobs:
       - name: Push image
         run: docker push "${{ secrets.DOCKER_REGISTRY }}/test/springboot:${GITHUB_SHA::7}"
 
-      - name: Print Short SHA
-        run: echo "SHA_TAG=${GITHUB_SHA::7}"
+      - name: Capture SHA tag
+        run: echo "SHA_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Update Kubernetes Deployment
+        uses: actions-hub/kubectl@master
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        with:
+          args: set image deployment/system2025-deployment springboot-container=${{ secrets.DOCKER_REGISTRY }}/test/springboot:${{ env.SHA_TAG }} -n system2025
