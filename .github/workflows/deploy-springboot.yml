@@ -44,7 +44,9 @@ jobs:
         run: echo "SHA_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
       - name: Set up Kubeconfig
-        run: echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > ~/.kube/config
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > ~/.kube/config
 
       - name: Update Deployment Image
         run: |
