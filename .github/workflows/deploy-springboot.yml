@@ -43,6 +43,11 @@ jobs:
       - name: Capture SHA tag
         run: echo "SHA_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
-      - name: Update Kubernetes Deployment
+      - name: Set up Kubeconfig
+        run: echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > ~/.kube/config
+
+      - name: Update Deployment Image
         run: |
-          kubectl --kubeconfig ${{ secrets.KUBE_CONFIG }} set image deployment/system2025-deployment springboot-container=${{ secrets.DOCKER_REGISTRY }}/test/springboot:${{ env.SHA_TAG }} -n system2025
+          kubectl set image deployment/system2025-deployment \
+          springboot-container=${{ secrets.DOCKER_REGISTRY }}/test/springboot:${{ env.SHA_TAG }} \
+          -n system2025
