@@ -15,6 +15,6 @@ public class SpringbootApplication {
 
     @GetMapping("/")
     public String home() {
-        return "home page enhanced";
+        return "home page v2";
     }
 }
