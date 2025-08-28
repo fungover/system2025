@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Kube Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    body{font-family: system-ui, sans-serif; margin:0; padding:2rem;}
+    .box{max-width:700px; margin:auto}
+    button{padding:0.6rem 1rem; margin-right:0.5rem}
+    .note{margin-top:1rem; color:#555}
+  </style>
+</head>
+<body>
+<div class="box">
+  <h1>Collaborative Map</h1>
+  <p>Markers are stored in memory and are not persisted between server restarts.</p>
+  <div>
+    <button id="newBtn">Create new map</button>
+    <input id="joinId" placeholder="Enter map id (e.g., a24Bd)"/>
+    <button id="joinBtn">Open</button>
+  </div>
+  <div id="dialog" style="display:none; margin-top:1rem; padding:1rem; border:1px solid #ccc">
+    <div>Your map is ready:</div>
+    <div><a id="mapLink" href="#"></a></div>
+    <button id="copyBtn">Copy link</button>
+  </div>
+  <p class="note">By using this site, you agree that marker data you add will be stored in memory on the server and visible to anyone with the map link.</p>
+</div>
+<script>
+  const base = window.location.origin;
+  document.getElementById('newBtn').onclick = async () => {
+    const res = await fetch('/api/new', {method:'POST'});
+    const data = await res.json();
+    const url = base + data.url;
+    const a = document.getElementById('mapLink');
+    a.href = data.url; a.textContent = url;
+    document.getElementById('dialog').style.display='block';
+    document.getElementById('copyBtn').onclick = async ()=>{
+      await navigator.clipboard.writeText(url);
+      alert('Link copied');
+    };
+  };
+  document.getElementById('joinBtn').onclick = ()=>{
+    const id = document.getElementById('joinId').value.trim();
+    if(id) location.href = '/' + id;
+  };
+</script>
+</body>
+</html>

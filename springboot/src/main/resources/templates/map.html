@@ -1,0 +1,200 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Map [[${mapId}]]</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    html, body, #map {height:100%; margin:0}
+    .controls{position:absolute; top:10px; left:10px; background:#fff; padding:8px; z-index:1000; border:1px solid #ccc}
+    .layer-item{display:flex; gap:4px; align-items:center; margin-top:4px}
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div class="controls">
+  <div>Map id: <b th:text="${mapId}"></b> <button id="copy">Copy link</button></div>
+  <div style="margin-top:6px">
+    <input id="markerText" placeholder="Marker text"/>
+    <select id="layerSelect"></select>
+    <button id="addLayer">+ Layer</button>
+  </div>
+  <div id="layers"></div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const mapId = '[[${mapId}]]';
+  // Center on Sweden: bounds roughly lat 55-69, lon 11-24
+  const map = L.map('map');
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+  const swedenBounds = L.latLngBounds([55, 11], [69, 24]);
+  map.fitBounds(swedenBounds);
+
+  const markers = new Map();
+  const layerGroups = new Map();
+  const visibleLayers = new Set();
+  const layerColors = new Map();
+  // Bright, high-contrast palette (avoids typical map greens/blues/grays)
+  const colorPalette = [
+    '#ff0000', // red
+    '#ff6f00', // vivid orange
+    '#ffd300', // bright yellow
+    '#a3ff00', // neon lime
+    '#00e676', // vivid mint
+    '#00e5ff', // cyan (bright)
+    '#2979ff', // electric blue
+    '#7c4dff', // vivid purple
+    '#ff00ff', // magenta
+    '#ff4081', // hot pink
+    '#ff1744', // bright crimson
+    '#00c853', // bright green
+    '#c6ff00', // chartreuse
+    '#ff9100', // orange accent
+    '#d500f9', // bright violet
+    '#18ffff', // aqua
+    '#ff3d00', // orange-red
+    '#64dd17'  // lime
+  ];
+  function pickColor(name){
+    if(layerColors.has(name)) return layerColors.get(name);
+    // hash name to pick stable color
+    let h=0; for(let i=0;i<name.length;i++){ h=(h*31 + name.charCodeAt(i))|0; }
+    const color = colorPalette[Math.abs(h)%colorPalette.length];
+    layerColors.set(name, color);
+    return color;
+  }
+
+  function ensureLayer(name){
+    if(!layerGroups.has(name)){
+      const g = L.layerGroup().addTo(map);
+      layerGroups.set(name, g);
+      visibleLayers.add(name);
+      addLayerControl(name);
+      refreshLayerSelect();
+    }
+  }
+
+  function addLayerControl(name){
+    const div = document.createElement('div');
+    div.className = 'layer-item';
+    const cb = document.createElement('input'); cb.type='checkbox'; cb.checked=true;
+    const swatch = document.createElement('span');
+    const color = pickColor(name);
+    swatch.style.cssText = `display:inline-block;width:12px;height:12px;background:${color};border:1px solid #333;`;
+    const label = document.createElement('span'); label.textContent = ' ' + name;
+    cb.onchange = ()=>{
+      if(cb.checked){ visibleLayers.add(name); layerGroups.get(name).addTo(map); }
+      else { visibleLayers.delete(name); layerGroups.get(name).remove(); }
+    };
+    div.append(cb, swatch, label);
+    document.getElementById('layers').append(div);
+  }
+
+  function refreshLayerSelect(){
+    const sel = document.getElementById('layerSelect');
+    sel.innerHTML='';
+    for(const name of layerGroups.keys()){
+      const o = document.createElement('option'); o.value=name; o.textContent=name;
+      sel.append(o);
+    }
+    if(!sel.value && layerGroups.size>0){ sel.value = Array.from(layerGroups.keys())[0]; }
+  }
+
+  document.getElementById('addLayer').onclick = ()=>{
+    const name = prompt('Layer name?');
+    if(name){ ensureLayer(name); }
+  };
+
+  document.getElementById('copy').onclick = async ()=>{
+    await navigator.clipboard.writeText(location.href);
+    alert('Copied');
+  };
+
+  async function loadMarkers(){
+    const res = await fetch(`/api/${mapId}/markers`);
+    const data = await res.json();
+    data.forEach(renderMarker);
+  }
+
+  function renderMarker(m){
+    const layerName = m.layer || 'default';
+    ensureLayer(layerName);
+    const g = layerGroups.get(layerName);
+    const color = pickColor(layerName);
+    const icon = L.divIcon({
+      className: 'custom-marker',
+      html: `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24">
+               <defs>
+                 <filter id="outline"><feMorphology in="SourceAlpha" result="dilated" operator="dilate" radius="0.6"/><feMerge><feMergeNode in="dilated"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+               </defs>
+               <path filter="url(#outline)" fill="${color}" stroke="#111" stroke-width="1.2" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+               <circle cx="12" cy="9" r="3.2" fill="white"/>
+             </svg>`,
+      iconAnchor: [12, 24],
+      popupAnchor: [0, -24]
+    });
+    const marker = L.marker([m.lat, m.lng], {draggable:false, icon});
+    marker.bindPopup(`<b>${m.text||''}</b><br/><small>Layer: ${layerName}</small><br/><button data-del="${m.id}">Delete</button>`);
+    marker.on('popupopen', (e)=>{
+      const el = e.popup.getElement();
+      const btn = el.querySelector('button[data-del]');
+      btn.onclick = async ()=>{
+        await fetch(`/api/${mapId}/markers/${m.id}`, {method:'DELETE'});
+        g.removeLayer(marker);
+        markers.delete(m.id);
+      };
+    });
+    marker.addTo(g);
+    markers.set(m.id, marker);
+  }
+
+  map.on('click', async (e)=>{
+    const text = document.getElementById('markerText').value.trim();
+    const layer = document.getElementById('layerSelect').value || 'default';
+    const res = await fetch(`/api/${mapId}/markers`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({lat:e.latlng.lat, lng:e.latlng.lng, text, layer})
+    });
+    const m = await res.json();
+    renderMarker(m);
+  });
+
+  // Real-time updates via Server-Sent Events, with polling fallback
+  function startSse(){
+    try{
+      const es = new EventSource(`/api/${mapId}/events`);
+      es.onmessage = (e)=>{
+        try{
+          const msg = JSON.parse(e.data);
+          if(msg.type==='added'){
+            renderMarker(msg.marker);
+          }else if(msg.type==='deleted'){
+            const marker = markers.get(msg.markerId);
+            if(marker){ marker.remove(); markers.delete(msg.markerId); }
+          }
+        }catch(err){ /* ignore */ }
+      };
+      es.onerror = ()=>{ es.close(); setTimeout(poll, 2000); };
+    }catch(err){ setTimeout(poll, 2000); }
+  }
+
+  async function poll(){
+    try{
+      const res = await fetch(`/api/${mapId}/markers`);
+      const list = await res.json();
+      for(const m of list){ if(!markers.has(m.id)) renderMarker(m); }
+    }catch(e){ /* ignore */ }
+    setTimeout(poll, 4000);
+  }
+
+  ensureLayer('default');
+  refreshLayerSelect();
+  loadMarkers();
+  startSse();
+</script>
+</body>
+</html>
