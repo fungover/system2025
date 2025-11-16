@@ -35,17 +35,19 @@
             border: 1px solid #bbb;
             border-radius: 6px;
             background: #fff;
-            cursor: pointer
+            cursor: pointer;
+            color: #333;
         }
 
         .icon-copy-btn:hover {
             background: #f5f5f5
         }
 
-        .icon-copy-btn img {
+        .icon-copy-btn svg {
             width: 18px;
             height: 18px;
-            display: block
+            display: block;
+            flex-shrink: 0; /* Keeps it from collapsing in the flex container */
         }
 
         .visually-hidden {
@@ -80,7 +82,9 @@
         <div class="link-row" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;word-break:break-all">
             <a id="mapLink" href="#" style="min-width:0"></a>
             <button id="copyBtn" class="icon-copy-btn" aria-label="Copy link" title="Copy link">
-                <img src="/images/copy-button-icon.jpg" alt=""/>
+                <svg xmlns="http://www.w3.org/2000/svg" height="18" viewBox="0 0 24 24" width="18" fill="#333">
+                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </svg>
                 <span class="visually-hidden">Copy link</span>
             </button>
             <span id="copyStatus" class="copy-status">Link copied</span>
