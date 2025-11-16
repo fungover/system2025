@@ -25,6 +25,7 @@ public class SseService implements DisposableBean {
         emitters.computeIfAbsent(mapId, k -> new CopyOnWriteArrayList<>()).add(emitter);
         emitter.onCompletion(() -> remove(mapId, emitter));
         emitter.onTimeout(() -> remove(mapId, emitter)); // Should not happen with 0L, but good practice
+        emitter.onError((ex) -> remove(mapId, emitter)); // Clean up on transport errors as well
         return emitter;
     }
 
@@ -34,20 +35,26 @@ public class SseService implements DisposableBean {
         // Iterate over a thread-safe list
         for(var emitter : list){
             try{
-                emitter.send(event);
-            }catch(IOException | IllegalStateException e){
-                // onCompletion will be called automatically, which triggers remove()
+                // Wrap as SSE event to avoid content-type issues across different serializers
+                emitter.send(SseEmitter.event().data(event));
+            }catch(Exception e){
+                // Be defensive: any failure means this emitter is not usable anymore.
+                try { emitter.completeWithError(e); } catch (Exception ignored) {}
+                remove(mapId, emitter);
             }
         }
     }
 
     private void sendHeartbeat() {
-        for (List<SseEmitter> list : emitters.values()) {
+        for (var entry : emitters.entrySet()) {
+            String mapId = entry.getKey();
+            List<SseEmitter> list = entry.getValue();
             for (SseEmitter emitter : list) { // CopyOnWriteArrayList is safe to iterate
                 try {
                     emitter.send(SseEmitter.event().comment("keep-alive"));
-                } catch (IOException | IllegalStateException e) {
-                    // onCompletion will be called automatically, which triggers remove()
+                } catch (Exception e) {
+                    try { emitter.completeWithError(e); } catch (Exception ignored) {}
+                    remove(mapId, emitter);
                 }
             }
         }
