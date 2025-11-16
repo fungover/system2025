@@ -4,8 +4,8 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Map [[${mapId}]]</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.7.0/ol.css">
+    <style>
     html, body, #map {height:100%; margin:0}
     .controls{position:absolute; top:10px; left:10px; background:#fff; padding:8px; z-index:1000; border:1px solid #ccc; border-radius:6px}
     .layer-item{display:flex; gap:4px; align-items:center; margin-top:4px}
@@ -35,19 +35,27 @@
   </div>
   <div id="layers"></div>
 </div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ol@v10.7.0/dist/ol.js"></script>
 <script>
   const mapId = '[[${mapId}]]';
-  // Center on Sweden: bounds roughly lat 55-69, lon 11-24
-  const map = L.map('map');
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap'
-  }).addTo(map);
-  const swedenBounds = L.latLngBounds([55, 11], [69, 24]);
-  map.fitBounds(swedenBounds);
+  // OpenLayers setup
+  // Base map with OSM tiles
+  const baseLayer = new ol.layer.Tile({ source: new ol.source.OSM() });
+  const map = new ol.Map({
+    target: 'map',
+    layers: [baseLayer],
+    view: new ol.View({ center: ol.proj.fromLonLat([15.0, 62.0]), zoom: 5 })
+  });
+  // Fit to Sweden bounds: lat 55-69, lon 11-24
+  (function fitToSweden(){
+    const extent4326 = [11, 55, 24, 69]; // [minLon, minLat, maxLon, maxLat]
+    const extent3857 = ol.proj.transformExtent(extent4326, 'EPSG:4326', 'EPSG:3857');
+    map.getView().fit(extent3857, { size: map.getSize(), padding: [10,10,10,10] });
+  })();
 
+  // markers: id -> { feature, layerName }
   const markers = new Map();
+  // layerGroups: name -> { layer: ol.layer.Vector, source: ol.source.Vector }
   const layerGroups = new Map();
   const visibleLayers = new Set();
   const layerColors = new Map();
@@ -83,8 +91,10 @@
 
   function ensureLayer(name){
     if(!layerGroups.has(name)){
-      const g = L.layerGroup().addTo(map);
-      layerGroups.set(name, g);
+      const source = new ol.source.Vector();
+      const layer = new ol.layer.Vector({ source, visible: true });
+      map.addLayer(layer);
+      layerGroups.set(name, { layer, source });
       visibleLayers.add(name);
       addLayerControl(name);
       refreshLayerSelect();
@@ -100,8 +110,10 @@
     swatch.style.cssText = `display:inline-block;width:12px;height:12px;background:${color};border:1px solid #333;`;
     const label = document.createElement('span'); label.textContent = ' ' + name;
     cb.onchange = ()=>{
-      if(cb.checked){ visibleLayers.add(name); layerGroups.get(name).addTo(map); }
-      else { visibleLayers.delete(name); layerGroups.get(name).remove(); }
+      const entry = layerGroups.get(name);
+      if(!entry) return;
+      if(cb.checked){ visibleLayers.add(name); entry.layer.setVisible(true); }
+      else { visibleLayers.delete(name); entry.layer.setVisible(false); }
     };
     div.append(cb, swatch, label);
     document.getElementById('layers').append(div);
@@ -158,47 +170,88 @@
     data.forEach(renderMarker);
   }
 
+  function svgPin(color){
+    // simple SVG pin similar to previous style
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+      <svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 24 24'>
+        <path fill='${color}' stroke='#111' stroke-width='1.2' d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z'/>
+        <circle cx='12' cy='9' r='3.2' fill='white'/>
+      </svg>`;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  }
+
+  function iconStyle(color){
+    return new ol.style.Style({
+      image: new ol.style.Icon({
+        src: svgPin(color),
+        anchor: [0.5, 1],
+        anchorXUnits: 'fraction',
+        anchorYUnits: 'fraction'
+      })
+    });
+  }
+
   function renderMarker(m){
     const layerName = m.layer || 'default';
     ensureLayer(layerName);
-    const g = layerGroups.get(layerName);
+    const entry = layerGroups.get(layerName);
     const color = pickColor(layerName);
-    const icon = L.divIcon({
-      className: 'custom-marker',
-      html: `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24">
-               <defs>
-                 <filter id="outline"><feMorphology in="SourceAlpha" result="dilated" operator="dilate" radius="0.6"/><feMerge><feMergeNode in="dilated"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-               </defs>
-               <path filter="url(#outline)" fill="${color}" stroke="#111" stroke-width="1.2" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-               <circle cx="12" cy="9" r="3.2" fill="white"/>
-             </svg>`,
-      iconAnchor: [12, 24],
-      popupAnchor: [0, -24]
+    const feature = new ol.Feature({
+      geometry: new ol.geom.Point(ol.proj.fromLonLat([m.lng, m.lat])),
+      id: m.id,
+      text: m.text || '',
+      layerName
     });
-    const marker = L.marker([m.lat, m.lng], {draggable:false, icon});
-    marker.bindPopup(`<b>${m.text||''}</b><br/><small>Layer: ${layerName}</small><br/><button data-del="${m.id}">Delete</button>`);
-    marker.on('popupopen', (e)=>{
-      const el = e.popup.getElement();
-      const btn = el.querySelector('button[data-del]');
-      btn.onclick = async ()=>{
-        await fetch(`/api/${mapId}/markers/${m.id}`, {method:'DELETE'});
-        g.removeLayer(marker);
-        markers.delete(m.id);
-      };
-    });
-    marker.addTo(g);
-    markers.set(m.id, marker);
+    feature.setStyle(iconStyle(color));
+    entry.source.addFeature(feature);
+    markers.set(m.id, { feature, layerName });
   }
 
-  map.on('click', async (e)=>{
+  // Popup overlay for feature info and delete
+  const popupEl = document.createElement('div');
+  popupEl.style.cssText = 'background:#fff;border:1px solid #888;border-radius:6px;padding:8px;min-width:140px;';
+  const overlay = new ol.Overlay({ element: popupEl, positioning: 'bottom-center', offset: [0, -10], stopEvent: true });
+  map.addOverlay(overlay);
+
+  map.on('singleclick', async (evt)=>{
+    let handled = false;
+    map.forEachFeatureAtPixel(evt.pixel, (feature, layer)=>{
+      const props = feature.getProperties();
+      const id = props.id;
+      const layerName = props.layerName || 'default';
+      const text = props.text || '';
+      popupEl.innerHTML = `<b>${text}</b><br/><small>Layer: ${layerName}</small><br/><button id="del-btn">Delete</button>`;
+      overlay.setPosition(evt.coordinate);
+      setTimeout(()=>{
+        const btn = popupEl.querySelector('#del-btn');
+        if(btn){
+          btn.onclick = async ()=>{
+            await fetch(`/api/${mapId}/markers/${id}`, { method:'DELETE' });
+            const rec = markers.get(id);
+            if(rec){
+              const entry = layerGroups.get(rec.layerName);
+              if(entry){ entry.source.removeFeature(rec.feature); }
+              markers.delete(id);
+            }
+            overlay.setPosition(undefined);
+          };
+        }
+      });
+      handled = true;
+      return true; // stop iterating
+    });
+    if(handled) return;
+
+    // Add a new marker via API
+    const coord = evt.coordinate;
+    const [lon, lat] = ol.proj.toLonLat(coord);
     const text = document.getElementById('markerText').value.trim();
     const layer = document.getElementById('layerSelect').value || 'default';
-    const res = await fetch(`/api/${mapId}/markers`,{
+    await fetch(`/api/${mapId}/markers`,{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({lat:e.latlng.lat, lng:e.latlng.lng, text, layer})
+      body: JSON.stringify({lat, lng: lon, text, layer})
     });
     // Do NOT render here to avoid double markers; SSE will deliver the new marker to all clients including the creator.
-    // Optionally, we could optimistically render with a temp id and replace; but SSE works well and avoids duplicates.
   });
 
   // Real-time updates via Server-Sent Events, with polling fallback
@@ -211,8 +264,12 @@
           if(msg.type==='added'){
             renderMarker(msg.marker);
           }else if(msg.type==='deleted'){
-            const marker = markers.get(msg.markerId);
-            if(marker){ marker.remove(); markers.delete(msg.markerId); }
+            const rec = markers.get(msg.markerId);
+            if(rec){
+              const entry = layerGroups.get(rec.layerName);
+              if(entry){ entry.source.removeFeature(rec.feature); }
+              markers.delete(msg.markerId);
+            }
           }
         }catch(err){ /* ignore */ }
       };
