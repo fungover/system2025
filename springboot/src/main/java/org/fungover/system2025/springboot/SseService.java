@@ -1,10 +1,10 @@
 package org.fungover.system2025.springboot;
 
 import org.springframework.beans.factory.DisposableBean;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -19,7 +19,7 @@ public class SseService implements DisposableBean {
         heartbeatExecutor.scheduleAtFixedRate(this::sendHeartbeat, 20, 20, TimeUnit.SECONDS);
     }
 
-    public SseEmitter subscribe(String mapId){
+    public SseEmitter subscribe(String mapId) {
         var emitter = new SseEmitter(0L);
         // Use CopyOnWriteArrayList for thread safety
         emitters.computeIfAbsent(mapId, k -> new CopyOnWriteArrayList<>()).add(emitter);
@@ -29,17 +29,20 @@ public class SseService implements DisposableBean {
         return emitter;
     }
 
-    public void send(String mapId, Object event){
+    @Async
+    public void send(String mapId, Object event) {
         var list = emitters.get(mapId);
-        if(list==null) return;
-        // Iterate over a thread-safe list
-        for(var emitter : list){
-            try{
-                // Wrap as SSE event to avoid content-type issues across different serializers
+        if (list == null) return;
+        for (var emitter : list) {
+            try {
+                // Wrap as an SSE event to avoid content-type issues across different serializers
                 emitter.send(SseEmitter.event().data(event));
-            }catch(Exception e){
+            } catch (Exception e) {
                 // Be defensive: any failure means this emitter is not usable anymore.
-                try { emitter.completeWithError(e); } catch (Exception ignored) {}
+                try {
+                    emitter.completeWithError(e);
+                } catch (Exception ignored) {
+                }
                 remove(mapId, emitter);
             }
         }
@@ -53,16 +56,19 @@ public class SseService implements DisposableBean {
                 try {
                     emitter.send(SseEmitter.event().comment("keep-alive"));
                 } catch (Exception e) {
-                    try { emitter.completeWithError(e); } catch (Exception ignored) {}
+                    try {
+                        emitter.completeWithError(e);
+                    } catch (Exception ignored) {
+                    }
                     remove(mapId, emitter);
                 }
             }
         }
     }
 
-    private void remove(String mapId, SseEmitter emitter){
+    private void remove(String mapId, SseEmitter emitter) {
         var list = emitters.get(mapId);
-        if(list != null){
+        if (list != null) {
             list.remove(emitter);
             // Clean up the map if the list is empty
             if (list.isEmpty()) {
