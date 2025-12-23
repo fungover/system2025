@@ -34,11 +34,11 @@ jobs:
         run: |
           mvn -Pnative spring-boot:build-image \
           -B --no-transfer-progress \
-          -Dspring-boot.build-image.imageName="${{ secrets.DOCKER_REGISTRY }}/test/springboot:${GITHUB_SHA::7}" \
+          -Dspring-boot.build-image.imageName="${{ secrets.DOCKER_REGISTRY }}/giteaadmin/springboot:${GITHUB_SHA::7}" \
           --file pom.xml
 
       - name: Push image
-        run: docker push "${{ secrets.DOCKER_REGISTRY }}/test/springboot:${GITHUB_SHA::7}"
+        run: docker push "${{ secrets.DOCKER_REGISTRY }}/giteaadmin/springboot:${GITHUB_SHA::7}"
 
       - name: Capture SHA tag
         run: echo "SHA_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
