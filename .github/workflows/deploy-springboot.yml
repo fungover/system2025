@@ -43,13 +43,23 @@ jobs:
       - name: Capture SHA tag
         run: echo "SHA_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
-      - name: Set up Kubeconfig
+      - name: Authenticate to Kubernetes
         run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > ~/.kube/config
+          echo "${{ secrets.K8S_CA_CERT }}" | base64 --decode > ca.crt
+          
+          # Set the cluster info
+          kubectl config set-cluster my-cluster --server=${{ secrets.K8S_SERVER }} --certificate-authority=ca.crt --embed-certs=true
+          
+          # Set the credentials - we'll name the entry 'system2025' to match your SA
+          kubectl config set-credentials system2025 --token=${{ secrets.K8S_TOKEN }}
+          
+          # Link them together in a context
+          kubectl config set-context default --cluster=my-cluster --user=system2025 --namespace=system2025
+          
+          kubectl config use-context default
 
       - name: Update Deployment Image
         run: |
           kubectl set image deployment/system2025-deployment \
-          springboot-container=${{ secrets.DOCKER_REGISTRY }}/test/springboot:${{ env.SHA_TAG }} \
+          springboot-container=${{ secrets.DOCKER_REGISTRY }}/giteaadmin/springboot:${{ env.SHA_TAG }} \
           -n system2025
