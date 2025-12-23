@@ -44,11 +44,9 @@ jobs:
         run: echo "SHA_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
       - name: Authenticate to Kubernetes
-        run: |
-          echo "${{ secrets.K8S_CA_CERT }}" | base64 --decode > ca.crt
-          
+        run: |          
           # Set the cluster info
-          kubectl config set-cluster my-cluster --server=${{ secrets.K8S_SERVER }} --certificate-authority=ca.crt --embed-certs=true
+          kubectl config set-cluster my-cluster --server=${{ secrets.K8S_SERVER }}
           
           # Set the credentials - we'll name the entry 'system2025' to match your SA
           kubectl config set-credentials system2025 --token=${{ secrets.K8S_TOKEN }}
