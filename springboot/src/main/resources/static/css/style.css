@@ -1,0 +1,40 @@
+.icon-copy-btn {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #bbb;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    color: #333;
+}
+
+.icon-copy-btn:hover {
+    background: #f5f5f5
+}
+
+.icon-copy-btn svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+    flex-shrink: 0;
+}
+
+.visually-hidden {
+    position: absolute;
+    clip: rect(1px, 1px, 1px, 1px);
+    padding: 0;
+    border: 0;
+    height: 1px;
+    width: 1px;
+    overflow: hidden
+}
+
+.copy-status {
+    margin-left: 8px;
+    font-size: 12px;
+    color: #0a7;
+    visibility: hidden
+}

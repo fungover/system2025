@@ -4,72 +4,11 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>Map [[${mapId}]]</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.7.0/ol.css">
-    <style>
-        html, body, #map {
-            height: 100%;
-            margin: 0
-        }
-
-        .controls {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: #fff;
-            padding: 8px;
-            z-index: 1000;
-            border: 1px solid #ccc;
-            border-radius: 6px
-        }
-
-        .layer-item {
-            display: flex;
-            gap: 4px;
-            align-items: center;
-            margin-top: 4px
-        }
-
-        .icon-copy-btn {
-            width: 32px;
-            height: 32px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid #bbb;
-            border-radius: 6px;
-            background: #fff;
-            cursor: pointer;
-            color: #333;
-        }
-
-        .icon-copy-btn:hover {
-            background: #f5f5f5
-        }
-
-        .icon-copy-btn svg {
-            width: 18px;
-            height: 18px;
-            display: block;
-            flex-shrink: 0; /* Keeps it from collapsing in the flex container */
-        }
-
-        .visually-hidden {
-            position: absolute;
-            clip: rect(1px, 1px, 1px, 1px);
-            padding: 0;
-            border: 0;
-            height: 1px;
-            width: 1px;
-            overflow: hidden
-        }
-
-        .copy-status {
-            margin-left: 6px;
-            font-size: 12px;
-            color: #0a7;
-            visibility: hidden
-        }
-    </style>
+    <!--    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.7.0/ol.css">-->
+    <link rel="stylesheet" th:href="@{/webjars/ol/ol.css}">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" th:href="@{/css/map.css}">
+    <script th:src="@{/webjars/ol/dist/ol.js}" defer></script>
 </head>
 <body>
 <div id="map"></div>
@@ -95,7 +34,7 @@
     </div>
     <div id="layers"></div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/ol@v10.7.0/dist/ol.js"></script>
+
 <script>
     const mapId = '[[${mapId}]]';
     // OpenLayers setup
@@ -368,8 +307,17 @@
                 }
             };
             es.onerror = () => {
-                es.close();
-                setTimeout(poll, 2000);
+                // VIKTIGT: Kolla state. Om det är CONNECTING försöker webbläsaren redan återansluta.
+                if (es.readyState === EventSource.CLOSED) {
+                    console.error("SSE stängdes permanent, startar polling.");
+                    setTimeout(poll, 2000);
+                } else if (es.readyState === EventSource.CONNECTING) {
+                    console.warn("SSE tappade kontakten, försöker återansluta automatiskt...");
+                    // Här kan du välja att starta en "nöd-polling" tills onopen triggas igen
+                }
+            };
+            es.onopen = () => {
+                console.log("SSE ansluten!");
             };
         } catch (err) {
             setTimeout(poll, 2000);
