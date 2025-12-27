@@ -30,13 +30,13 @@ public class SseService implements DisposableBean {
     }
 
     @Async
-    public void send(String mapId, Object event) {
+    public void send(String mapId, String eventId, Object event) {
         var list = emitters.get(mapId);
         if (list == null) return;
         for (var emitter : list) {
             try {
                 // Wrap as an SSE event to avoid content-type issues across different serializers
-                emitter.send(SseEmitter.event().data(event));
+                emitter.send(SseEmitter.event().id(eventId).data(event));
             } catch (Exception e) {
                 // Be defensive: any failure means this emitter is not usable anymore.
                 try {
